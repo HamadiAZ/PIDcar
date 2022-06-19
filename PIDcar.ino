@@ -231,8 +231,8 @@ void updatesensors(char S='B'){ // updatesensors( BLACK B mode or WHite W mode)
 				   float z=map(constrain(abs(position-x),0,1100),0,1100,255,0); // FEL LED LI 7ATJTNA BEHA TKOUN 0 FEL BA9I 255
 				   //leds[i]=CHSV(0,255,255-bri); // LINE FOLLOWING LEDS
 			   int bri=constrain(z+PathColorSettings[i],0,255);
-			   int c=constrain(z,0,1); // BECH KI NOTHRBO BRI*255 IJI YA 0 YA 255 = COLOR STABLE OF THE LINE FOLLOWINGLEDS
-			   int colorr=c*95;
+			   int colorr=constrain(z,0,1)*95; // BECH KI NOTHRBO BRI*255 IJI YA 0 YA 255 = COLOR STABLE OF THE LINE FOLLOWINGLEDS
+			   // *95 SO O or 95 : green color or Red
 				   leds[i]=CHSV(colorr,255,bri); 
 			   
 		   }
