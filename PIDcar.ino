@@ -148,7 +148,9 @@ int Tp = 200;
 int Kp2 = 12;
 int Kd2 = 0;
 int error=0,lasterror,Turn,powerR,powerL;
-void rwfollow(int offset = 10)
+
+
+void rwfollow(int offset = 10) // offset : distance to the wall
 {
   //delay(200);
    // distanceL = ultrasonicL.read(); //Serial.print("distance left : "); Serial.println(distanceL);Serial.println("*************");
