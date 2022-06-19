@@ -623,10 +623,10 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 					//Taction=millis();
 					// time checking first !
 					boolean check=true;
-				   
-					if ((millis()-lastIntDsensorstimes[0])>tempsinterval) check=false;
-					if ((millis()-lastIntDsensorstimes[2])>tempsinterval) check=false;
-					if ((millis()-lastIntDsensorstimes[4])>tempsinterval) check=false;
+				    for(int i=0;i<5;i+=2){
+						if ((millis()-lastIntDsensorstimes[i])>tempsinterval) check=false;
+					}
+
 					Serial.print("CHECK = ");Serial.print(check);
 					
 					if (check==true){
