@@ -8,9 +8,9 @@ const PROGMEM uint8_t IN1=6;
 const PROGMEM uint8_t IN2=5;
 const PROGMEM uint8_t IN3=4;
 const PROGMEM uint8_t IN4=3;
-Ultrasonic ultrasonicR(A9, A8);
+Ultrasonic ultrasonicR(31, 30);
 Ultrasonic ultrasonicF(A7, A6);
-Ultrasonic ultrasonicL(A5, A4);
+Ultrasonic ultrasonicL(A5, A4); // trig echo
 int distanceL,distanceR,distanceF;
 int prev_i=0,prev_error=0;
 QTRSensors qtr;
@@ -40,7 +40,7 @@ int Taction=0;
 
 // ********************************************* IMPORTANT PATH STRING : *************************************************************************
 int pathSteps=0;
-//const char path[] ="BlLWBls"; // stope with Ss
+//const char path[] ="BLLWBLs"; // stope with Ss
 const char path[] ="BRWBRrs"; // stope with Ss
 // String lezm tabda b B or W !!!!!
  // path turns of 90 degrees si 90 degre safya : mahech T or X : ekteb r el l bech idourha bel pid 
@@ -144,19 +144,20 @@ void stope(int br=0) {
 
 
 int derivative = 0;
-int Tp = 200;
-int Kp2 = 12;
-int Kd2 = 0;
+int Tp = 150;
+int Kp2 = 10;
+int Kd2 = 50;
 int error=0,lasterror,Turn,powerR,powerL;
 
 
-void rwfollow(int offset = 10) // offset : distance to the wall
+void wallfollow(int offset = 14,char wall='R') // offset : distance to the wall
 {
+   int r,l;
   //delay(200);
    // distanceL = ultrasonicL.read(); //Serial.print("distance left : "); Serial.println(distanceL);Serial.println("*************");
     //distanceR = ultrasonicR.read();Serial.print("distance right : "); Serial.println(distanceR);Serial.println("*******************************************");
     //distanceL=10;
-    if (distanceR <= 2)// KI YOD5LL F 7IT IMIN MEL 50° JSUQA 30°// CBN
+    if (distanceR <= 3)// KI YOD5LL F 7IT IMIN MEL 50° JSUQA 30°// CBN
     {
         while (1)// idour ISAR jusqa YARJA3 PARALLEL LEL 7IT LIMIN
         {
@@ -171,7 +172,7 @@ void rwfollow(int offset = 10) // offset : distance to the wall
         stope();// bech y7abes
 
     }
-    else if (distanceL <=2) // KI YOD5L F 7IT lisar // CBN
+    else if (distanceL <=3) // KI YOD5L F 7IT lisar // CBN
     {
 
         delay(10);
@@ -183,21 +184,42 @@ void rwfollow(int offset = 10) // offset : distance to the wall
     }
 
     else { // PID FOLLOW
-        error = distanceR - offset;    
-        derivative = error - lasterror;   
-        Turn = Kp2 * error + Kd2 * derivative;
-       int r = Tp - Turn;             
-       int l = Tp + Turn;
-       r=constrain(r,-160,160);
-        r = map(r, -160, 160, 40, 130);  // 40 OUTMIN ET 110 OUT MAX
-       l = map(l, -2*Tp, 2*Tp, 0 , 170); //BESTTTT + KP 12 0 0
-      //l = map(l, -255, 255, 0 , 140);
-        
-        if (r < 0 && l < 0) { back(abs(r), abs(l)); }
-         else if (r < 0 && l >0) { right(0, abs(l)); }
-         else if (r > 0 && l < 0) { left(r, 0); }
-         else { forward(r, l); };
-        lasterror = error;   // lel integrale       
+      if(wall=='R'){// right wall follow
+          error = distanceR - offset;    
+          if (abs(error)>40) Kd2=300;
+          else Kd2=50;
+          derivative = error - lasterror;   
+          Turn = Kp2 * error + Kd2 * derivative;
+          r = Tp - Turn;             
+          l = Tp + Turn;
+          r=constrain(r,0,255);
+          l=constrain(l,0,220);
+          //r = map(r, -160, 160, 40, 130);  // 40 OUTMIN ET 110 OUT MAX
+          //l = map(l, -2*Tp, 2*Tp, 0 , 170); //BESTTTT + KP 12 0 0
+          //l = map(l, -255, 255, 0 , 140);
+          lasterror = error;
+      }
+      else{// left wall follow
+         Serial.println ("IM HERE");
+          error = distanceL - offset;    
+          if (abs(error)>40) Kd2=300;
+          else Kd2=50;
+          derivative = error - lasterror;   
+          Turn = Kp2 * error + Kd2 * derivative;
+          r = Tp + Turn;             
+          l = Tp - Turn;
+          l=constrain(l,0,255);
+          r=constrain(r,0,220);
+          //r = map(r, -160, 160, 40, 130);  // 40 OUTMIN ET 110 OUT MAX
+          //l = map(l, -2*Tp, 2*Tp, 0 , 170); //BESTTTT + KP 12 0 0
+          //l = map(l, -255, 255, 0 , 140);
+        lasterror = error;
+      }
+     
+     
+    forward(r, l);
+    Serial.print("rwall PID SPEEDS R,L ");Serial.print(r);Serial.print(" , ");Serial.println(l);
+       // lel integrale       
     }
 }
  
@@ -279,7 +301,25 @@ void updatesensors(char S='B'){ // updatesensors( BLACK B mode or WHite W mode)
      // THIS ONE Serial.print(" position : ");Serial.println(position);
      // THIS ONE Serial.println(' ');
 }
-
+void obstacleRight()
+{  // THE SPEED OF FORWARD OF RIGHT THEN LEFT WHEEL 
+    int t=millis();
+    while(millis()-t<300){
+      right(200,200);
+    }
+    int check=0;
+    forward(200,150);delay(600);
+    
+    while(true){
+      forward(200,150);updatesensors(currentLineColor);
+      for(int i=0;i<SensorCount;i++){
+        if(IntDsensors[i]==1){check=1;break;}
+      }
+      if(check==1) break; 
+    }
+    stope();
+   //Serial.print("right obstacle");
+}
 const PROGMEM float TURNFACTOR=1.1;// multiplier=1 GADCH YON9ES VITESS FEL DORA
 const PROGMEM float Kp=0.06;     // 255: 0.1     110: 0.2   
 const PROGMEM float Ki=0.05 ;   // 255: 0.05    110: 0.05
@@ -329,7 +369,7 @@ const PROGMEM uint8_t leftMaxSpeed=150;  // 255  50
  else if (rightMotorSpeed < 0 && leftMotorSpeed >0) { right(abs(multiplier*rightMotorSpeed), abs(leftMotorSpeed)); }
  else if (rightMotorSpeed > 0 && leftMotorSpeed < 0) { left(rightMotorSpeed, multiplier*abs(leftMotorSpeed)); }
  else { forward(rightMotorSpeed, leftMotorSpeed); };
- // THIS ONE Serial.print(" SPEEDS R,L ");Serial.print(rightMotorSpeed);Serial.print(" , ");Serial.print(leftMotorSpeed);
+  Serial.print("LINE PID SPEEDS R,L ");Serial.print(rightMotorSpeed);Serial.print(" , ");Serial.print(leftMotorSpeed);
  // forward(rightMotorSpeed,leftMotorSpeed);
  // delayMicroseconds(140);
 }
@@ -446,6 +486,8 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 			}
 		  }
 		  else {updatesensors(Prevc);  //Serial.println(" debugging 1 ");
+            mode='n'; // ANYTHING EXCEPT FOR B AND W
+           
 		}
 
 		  if((path[pathSteps]=='R')||(path[pathSteps]=='r'))
@@ -516,25 +558,25 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 					else if(path[pathSteps]=='R') {
 						Serial.println("90° RIGHT : PATH R : ");
 						pathSteps++; myledwhiteon();
-						right(100,200);
-						delay(300);
+						right(140,180);
+						delay(310);
 						while(1){
-							right(100,200);//Serial.println("right");
+							right(140,180);//Serial.println("right");
 							updatesensors(currentLineColor);
-							if(IntDsensors[4]==1) break;
+							if((IntDsensors[1]==1)&&(IntDsensors[0]==0)) break;
 						}
 						Taction=millis();
 					}
 					else if(path[pathSteps]=='L') {
 						Serial.println("90° LEFT : PATH L : ");
 						pathSteps++; myledwhiteon();
-						left(200,100);
-						delay(300);
+						left(180,140);
+						delay(310);
 						while(1){
 
-							left(200,100);//Serial.println("left");
+							left(180,140);//Serial.println("left");
 							updatesensors(currentLineColor);
-							if(IntDsensors[0]==1) break;
+							if((IntDsensors[3]==1)&&(IntDsensors[0]==0)) break;
 						}
 						Taction=millis();           
 					}
@@ -556,7 +598,7 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 						}
 					   pathSteps++;
 					 }
-					else if(path[pathSteps]=='s') {Serial.println("DEAD STOP , PATHSTRING : s DONE");stope();delay(100000);}
+					else if(path[pathSteps]=='s') {Serial.println("DEAD STOP , PATHSTRING : s DONE");stope();myledwhiteon();delay(100000);}
 					else { // ERREUR DANS PATHSTRING GO FOR PID SAFER
 							// Y3NI LGUEE DOURA OR INTERSECTION W MALGUECH 7AJA S7I7A FEL PATHSTRING EXEMPLE 00X11 W YALGA LEFT L 
 						//pathSteps++;
@@ -628,25 +670,28 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 					}
 
 					Serial.print("CHECK = ");Serial.print(check);
-					
+				// if ((check==true)&& ((path[pathSteps]=='B')||(path[pathSteps]=='W'))){
 					if (check==true){
-						  Taction=millis();
+						 
 						  if(mode=='W'){
+              Taction=millis();
 							Prevc='W';Serial.println("SWITCHED TO WHITE LINE : PATH W: ");
 							pathSteps++;myledwhiteon();
 							mode=='N';
 							}
 						  else if(mode=='B'){
+               Taction=millis();
 							Prevc='B';Serial.println("SWITCHED TO BLACK LINE : PATH W: ");
 							pathSteps++;myledwhiteon();
 							mode=='N'; // normal mode ,cad : NO SEARCHING for linecolor switching ,  now Normal line following
 							}
-						  else { // ERREUR DANS PATHSTRING GO FOR PID SAFER
+						  else { // ERREUR DANS PATHSTRING GO FOR PID SAFER MAYBE 
+                // or maybe error reading so just follow line with else()
 							// enable either A or B mech EZZOUZ
 						  
 						  
 							//pathSteps++;   solution A
-							//goto ELSE;    A
+							 ELSE();    
 							
 							/* or may we try to correct it automatically here ? if no disable it !! SOLUTION B
 							the code will change linefollowing color without looking to the PATHSTRING
@@ -654,9 +699,9 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 							 
 							 
 							 //solution B
-							if (currentLineColor=='W') Prevc='B';
-							else Prevc='W';
-							mode=='N'; // normal mode ,cad : NO SEARCHING for linecolor switching ,  now Normal line following
+//							if (currentLineColor=='W') Prevc='B';
+//							else Prevc='W';
+//							mode=='N'; // normal mode ,cad : NO SEARCHING for linecolor switching ,  now Normal line following
 								  // fin solution B 
 						  }
 					}
@@ -664,16 +709,16 @@ void Run_Robot(char C='A'){ // C color : A AUTO COLOR FROM String path B black W
 					  ELSE();Serial.print("SENT TO PID FROM 1x0x1 CONDITION");
 					}
 		}
-		else if(compare(IntDsensors,"00000")&&(millis()-Taction>1000)){
-			 if(path[pathSteps]=='s') {Serial.println("DEAD STOP , PATHSTRING : s DONE");stope();delay(100000);}
-			 else { // ERREUR DANS PATHSTRING GO FOR PID SAFER
-					// Y3NI LGUEE DOURA OR INTERSECTION W MALGUECH 7AJA S7I7A FEL PATHSTRING EXEMPLE 00X11 W YALGA LEFT L 
-				//pathSteps++;
-				ELSE();Serial.println("SENT TO PID FROM 00000 CONDITION");
-			}
-
-			
-		}
+//		else if(compare(IntDsensors,"00000")&&(millis()-Taction>1000)){
+//			 if(path[pathSteps]=='s') {Serial.println("DEAD STOP , PATHSTRING : s DONE");stope();delay(100000);}
+//			 else { // ERREUR DANS PATHSTRING GO FOR PID SAFER
+//					// Y3NI LGUEE DOURA OR INTERSECTION W MALGUECH 7AJA S7I7A FEL PATHSTRING EXEMPLE 00X11 W YALGA LEFT L 
+//				//pathSteps++;
+//				ELSE();Serial.println("SENT TO PID FROM 00000 CONDITION");
+//			}
+//
+//			
+//		}
 		else{ // pid follow 
 			// also fel else hethi ken fama change of line color from W to B or inverse
 			// robot will not turn any 90 except for these who are specified in path
@@ -789,22 +834,31 @@ void setup() {
     FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, NUM_LEDS);
     FastLED.setBrightness(80);
     stope();     
-	//Serial.begin(9600);
 	qtr.emittersOff();
 	qtr.setTypeAnalog(); // or setTypeAnalog()
   qtr.setSensorPins(analog_pins, SensorCount);
-//	calibratE();
-	//calibratesensors();
+	calibratesensors();
 	//PathColorSettings[]={255,255,0,0,0};
+
+
+  //// *********************************************************
+ Serial.begin(9600); //  //// DONT FORGOT TO DISABLE THIS BEFORE STARTING THE ROBOT *********************************************************
+
+
+ 
   }
 void loop() {
 //	forward(200,200);
 // delay(1300);
 //left(200,100);
-//delay(300);
+delay(220);updatesensors();
+Serial.println(qtr.CheckonLine()); 
 
-updatesensors();
-rwfollow(20);
+//forward(160,160);
+//delay(1000);
+//obstacleRight();
+//delay(5000);
+//wallfollow(14,'L');
 //Serial.println(millis());
 //Run_Robot();
 //pidfollow();
